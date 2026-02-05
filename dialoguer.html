@@ -1,0 +1,565 @@
+<html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <title>WatPK Dialogue Writer</title>
+        
+        <style type="text/css">
+            body
+            {
+                color: #808080;
+                background-color: black;
+                font-family: Arial, Sans-Serif;
+            }
+            
+            title,h1,h2,h3
+            {
+                color:white;
+            }
+            
+            input,textarea,select
+            {
+                color:#E0E0F8;
+                background-color: #080840;
+                border: 2px inset #80A0E0;
+            }
+            
+            button
+            {
+                color: #c0c0c0;
+                background-color: #2038AC;
+                border-color: #5555FF;
+                border-radius: 5px;
+            }
+            
+            input:disabled,textarea:disabled,select:disabled
+            {
+                opacity:.5;
+            }
+            
+            .beat
+            {
+                padding-bottom:10px;
+                padding-top:10px;
+                padding-left:10px;
+                padding-right:20px;
+                margin-bottom:25px;
+                margin-top:15px;
+                background-color: #181830;
+                outline: 5px solid #7080A0;
+                border-radius: 5px;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .disabled-beat
+            {
+                padding-bottom: 10px;
+                padding-top: 10px;
+                padding-left: 10px;
+                padding-right:20px;
+                margin-bottom:25px;
+                margin-top:15px;
+                background-color: #404040;
+                outline: 3px dotted #606060;
+                border-radius: 5px;
+                display:flex;
+                flex-direction: column;
+            }
+            
+            .prop
+            {
+                padding-top:10px;
+                padding-bottom:10px;
+                margin:2px;
+                float:left;
+            }
+            
+            .leftColumn
+            {
+                width:100px;
+                float:left;
+            }
+            
+            .rightColumn
+            {
+                float:left;
+            }
+            
+            .label
+            {
+                padding:0;
+                margin: 0;
+                color:white;
+                font-weight: bold;
+            }
+            
+            .close-button
+            {
+                float: right;
+                background-color:red;
+                outline: 3px solid #900000;
+                border: none;
+            }
+            
+            .undo-button
+            {
+                float: right;
+                background-color: cyan;
+                outline: 3px dotted blue;
+                color:blue;
+                border: none;
+            }
+            
+            .insert-button
+            {
+                color: #Ffffff;
+                font-weight: bolder;
+                width: 64px;
+                margin-left:auto;
+                margin-right: auto;
+            }
+            
+            #output
+            {
+                border: 2px dashed #6060A8;
+                font-family: Courier, Monospace;
+                color: #90A8D0;
+                background-color: #080820;
+                padding:10px;
+                margin: 25px;
+                overflow: scroll;
+            }
+        </style>
+        
+        <script>
+            const sceneObj = 
+            {
+                "PreScript":null,
+                "Setup":[],
+                "Content": [],
+                "Choices": [],
+                "PostScript":null
+            };
+            
+            var characterList = [];
+            
+            var savedData = null;
+            
+            function updateParameters()
+            {
+                let charList = document.getElementById("characterList");
+                
+                var inputs = charList.querySelectorAll("input");
+                
+                let oldChars = [...characterList];
+                
+                characterList = [null];
+                inputs.forEach(input => 
+                {
+                    characterList.push(input.value);
+                });
+                
+                var container = document.getElementById("Container");
+                var beats = container.querySelectorAll(".beat");
+                
+                let noob = null;
+                
+                for (let i = 0; i < characterList.length;i++)
+                {
+                    if (!oldChars.includes(characterList[i]))
+                        noob = characterList[i];
+                }
+                
+                let unc = null;
+                
+                for (let i = 0; i < oldChars.length; i++)
+                {
+                    if (!characterList.includes(oldChars[i]))
+                        unc = oldChars[i];
+                }
+                
+                for (let i = 0; i < beats.length; i++)
+                {
+                    let beat = beats[i];
+                    let selector = beat.querySelector("[name=Character]");
+                    
+                    // kill the old options //
+                    // selector.innerHTML = "";
+                    
+                    let savedSpot = selector.value;
+                    selector.innerHTML = "";
+                    
+                    for (let j = 0; j < characterList.length; j++)
+                    {
+                            var opt = document.createElement("option");
+                            opt.innerText =         characterList[j];
+                            selector.appendChild(opt);
+                    }
+                    
+                    if (unc == savedSpot && unc != null)
+                        selector.value = noob;
+                    else
+                        selector.value = savedSpot;
+                }
+            }
+            
+            function addCharacter()
+            {
+                let charList = document.getElementById("characterList");
+                
+                let newInput = document.createElement("input");
+                newInput.setAttribute("type","text");
+                newInput.addEventListener("change", () => 
+                {
+                    updateParameters();
+                });
+                
+                charList.appendChild(newInput);
+                
+                return newInput;
+            }
+
+            function addBeat(after = null)
+            {
+                var beatDiv = document.createElement("div");
+                beatDiv.setAttribute("class", "beat");
+                
+                let close = document.createElement("button");
+                close.setAttribute("aria-label", "Close");
+                close.setAttribute("class","close-button");
+                close.innerHTML = "&times";
+                close.addEventListener("click", () => 
+                {
+                    //beatDiv.remove();
+                    disable(beatDiv);
+                });
+                
+                // Text property //
+                let textDiv = document.createElement("div");
+                textDiv.setAttribute("class","prop");
+                
+                let textL = document.createElement("div");
+                textL.setAttribute("class","leftColumn");
+                let textR = document.createElement("div");
+                textR.setAttribute("class","rightColumn");
+                
+                
+                let textLabel = document.createElement("p");
+                textLabel.innerText = "Text: ";
+                textLabel.setAttribute("class", "label");
+                
+                let textField = document.createElement("textarea");
+                textField.name = "Text";
+                
+                const MAX_COLS = 24;
+                
+                textField.setAttribute("cols", MAX_COLS);
+                textField.setAttribute("rows", 4);
+                textField.setAttribute("wrap","off");
+                textField.setAttribute("style","resize:none;");
+                textField.addEventListener("input", () => {
+                      const lines = textField.value.split("\n");
+
+                          for (let i = 0; i < lines.length; i++) 
+                          {
+                            if (lines[i].length > MAX_COLS) {
+                                lines[i] = lines[i].slice(0, MAX_COLS);
+                                
+                                textField.value = lines.join("\n");
+                        }
+                    }
+                });
+                
+                
+                // Character property //
+                let charDiv = document.createElement("div");
+                charDiv.setAttribute("class","prop");
+                
+                let charL = document.createElement("div");
+                charL.setAttribute("class","leftColumn");
+                let charR = document.createElement("div");
+                charR.setAttribute("class","rightColumn");
+                
+                let characterLabel = document.createElement("p");
+                characterLabel.innerText = "Character: ";
+                characterLabel.setAttribute("class", "label");
+                
+                let characterField = document.createElement("select");
+                characterField.name = "Character";
+                for (let i = 0; i < characterList.length; i++)
+                {
+                    let charOpt = document.createElement("option");
+                    charOpt.setAttribute("value",characterList[i]);
+                    charOpt.innerText = characterList[i];
+                    characterField.appendChild(charOpt);
+                }
+                
+                // insert button //
+                let insertButton = document.createElement("button");
+                insertButton.setAttribute("class","insert-button");
+                insertButton.innerHTML = "&plus;";
+                insertButton.addEventListener("click",()=>
+                {
+                    addBeat(beatDiv);
+                });
+                
+                // container and such //
+                let containerDiv = document.getElementById("Container");
+                
+                charL.appendChild(characterLabel);
+                charR.appendChild(characterField);
+                
+                charDiv.appendChild(charL);
+                charDiv.appendChild(charR);
+                charDiv.appendChild(close);
+                
+                textL.appendChild(textLabel);
+                textR.appendChild(textField);
+                
+                textDiv.appendChild(textL);
+                textDiv.appendChild(textR);
+                
+                beatDiv.appendChild(charDiv);
+                beatDiv.appendChild(textDiv);
+                beatDiv.appendChild(insertButton);
+                
+                if (after !== null)
+                    after.after(beatDiv);
+                else
+                    containerDiv.appendChild(beatDiv);
+                
+                return beatDiv;
+            }
+            
+            function stringify()
+            {
+                let container = document.getElementById("Container");
+                
+                var beatList = container.getElementsByClassName("beat");
+                
+                var data = JSON.parse(JSON.stringify(sceneObj));
+                
+                for (let i = 0; i < beatList.length; i++)
+                {
+                    var beat = beatList[i];
+                    var text = beat.querySelector("[name=Text]").value;
+                        
+                    var char = beat.querySelector("[name=Character]").value;
+                        
+                    let beatData = {};
+                    
+                    if (char !== null && char.length > 0 && char !== "null")
+                        beatData.Character = char;
+                    if (text !== null && text.length > 0 && text !== "null")
+                        beatData.Text = text.split("\n");
+                    
+                    data["Content"].push(beatData);
+
+                }
+                
+                let output = document.getElementById("outputText");
+                
+                savedData = JSON.stringify(data, null, "\t");
+                
+                output.innerText = savedData;
+            }
+            
+            async function save()
+            {
+                stringify();
+                    
+                var filename = document.getElementById("filename").value;
+                try 
+                {
+                    const taBlob = new Blob([savedData], 
+                    { 
+                        type: 'text/plain' 
+                    });
+
+                    const pickerOptions = 
+                    {
+                        suggestedName: filename + '.dls'
+                    };
+
+                    const fileHandle = await window.showSaveFilePicker(pickerOptions);
+                    const writableFileStream = await fileHandle.createWritable();
+                    await writableFileStream.write(taBlob);
+                    await writableFileStream.close();
+                } 
+                catch (err)
+                {
+                    console.error(err.name, err.message)
+                }
+            }
+            
+            document.addEventListener('DOMContentLoaded', (event) => {
+            
+                //addCharacter();
+                addBeat();
+            
+            document.getElementById('loadInput').addEventListener('change', (event) => 
+            {
+                const file = event.target.files[0];
+                if (file) 
+                {
+                    const reader = new FileReader();
+
+                    reader.onload = function(e) 
+                    {
+                        let filenameElem = document.getElementById("filename");
+                        
+                        filenameElem.value = file.name.split('.')[0];
+                        savedData = e.target.result;
+                        clear();
+                        unpack();
+                    };
+
+                    reader.onerror = function(e) 
+                    {
+                        console.error("FileReader error:", e.target.error);
+                    };
+        
+                    reader.readAsText(file); 
+                }
+            });
+            });
+            
+            function clear()
+            {
+                var divs = document.querySelectorAll(".beat");
+                for (let i = 0; i < divs.length; i++)
+                {
+                    divs[i].remove();
+                }
+                
+                let charList = document.getElementById("characterList");
+                
+                charList.innerHTML = "";
+                characterList = [];
+            }
+            
+            function disable(beat)
+            {
+                beat.setAttribute("class","disabled-beat");
+                let text = beat.querySelector("[name=Text]");
+                let char = beat.querySelector("[name=Character]");
+                let close = beat.querySelector(".close-button");
+                let insertButton = beat.querySelector(".insert-button");
+                //insertButton.disabled = true;
+                
+                text.disabled = true;
+                char.disabled = true;
+                
+                let undo = document.createElement("button");
+                undo.setAttribute("class","undo-button");
+                undo.setAttribute("aria-label","Restore");
+                undo.innerHTML = "&#8630;";
+                undo.addEventListener("click",()=>
+                {
+                    enable(beat);
+                });
+                
+                close.after(undo);
+                close.remove();
+            }
+            
+            function enable(beat)
+            {
+                beat.setAttribute("class", "beat");
+                let text = beat.querySelector("[name=Text]");
+                let char = beat.querySelector("[name=Character]");
+                let insertButton = beat.querySelector(".insert-button");
+                //insertButton.disabled = false;
+                text.disabled = false;
+                char.disabled = false;
+                
+                let undo = beat.querySelector(".undo-button");
+                
+                let close = document.createElement("button");
+                close.setAttribute("class","close-button");
+                close.setAttribute("aria-label","Close");
+                close.innerHTML = "&times";
+                close.addEventListener("click", ()=>
+                    {
+                        disable(beat);
+                    });
+                    
+                undo.after(close);
+                undo.remove();
+            }
+            
+            function unpack()
+            {
+                let obj = JSON.parse(savedData);
+                
+                characterList = [];
+                
+                for (let i = 0; i < obj.Content.length; i++)
+                {
+                    var beat = obj.Content[i];
+                    if (!characterList.includes(beat.Character))
+                    {
+                        characterList.push(beat.Character);
+                        let input = addCharacter();
+                        
+                        input.value = beat.Character;
+                    }
+                }
+                
+                updateParameters();
+                
+                for (let i = 0; i < obj.Content.length; i++)
+                {
+                    var beat = obj.Content[i];
+                    var beatDiv = addBeat();
+                    
+                    let text = beatDiv.querySelector("[name=Text]");
+                    let char = beatDiv.querySelector('[name=Character]');
+                    
+                    text.value = "";
+                    for (let j = 0; j < beat.Text.length; j++)
+                    {
+                        text.value += beat.Text[j];
+                        if (j < beat.Text.length - 1)
+                            text.value += "\n";
+                    }
+                    char.value = beat.Character;
+                }
+            }
+        </script>
+    </head>
+    
+    <body>
+        <h1>WatPK Dialogue Writer</h1>
+        
+        <p>Use this form to write dialogue fast and convert it into JSON</p>
+        
+        <h3>Characters</h3>
+            <div id="characterList" style="display:flex; flex-direction:column;">
+            </div>
+            <br>
+            <div>
+                <button onClick="addCharacter()">Add Character</button>
+            </div>
+        <h2>Scene</h2>
+        <input type="file" accept=".dls" id="loadInput">
+        
+        <h3>Scene Title</h3>
+        <input id="filename" value="Untitled">
+        
+        <div id="Container">
+            
+        </div>
+        <!--<div>
+            <button onClick="addBeat()">Add Beat</button>
+        </div>-->
+        <div id="Output">
+            <button onClick="stringify()">Stringify</button>
+            <button onClick="save()">Save</button>
+            <pre id = "outputText"></pre>
+        </div>
+    </body>
+
+</html>
